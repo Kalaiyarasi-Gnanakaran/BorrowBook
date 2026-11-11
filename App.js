@@ -16,6 +16,8 @@ import {
   getBooks,
   updateBook,
   deleteBook,
+  addBorrowing,
+  getAvailableBooks,
 } from './database';
 
 import { NavigationContainer } from '@react-navigation/native';
@@ -335,6 +337,152 @@ function EditBookScreen({ route, navigation }) {
   );
 }
 
+
+function LendBookScreen({ navigation }) {
+  const [books, setBooks] = useState([]);
+  const [selectedBookId, setSelectedBookId] = useState(null);
+  const [borrowerName, setBorrowerName] = useState('');
+  const [borrowerContact, setBorrowerContact] = useState('');
+  const [borrowedDate, setBorrowedDate] = useState('');
+  const [dueDate, setDueDate] = useState('');
+
+  async function loadAvailableBooks() {
+    try {
+      const availableBooks = await getAvailableBooks();
+      setBooks(availableBooks);
+    } catch (error) {
+      console.log('Error loading available books:', error);
+      Alert.alert('Error', 'Could not load available books.');
+    }
+  }
+
+  useEffect(() => {
+    const unsubscribe = navigation.addListener(
+      'focus',
+      loadAvailableBooks
+    );
+
+    return unsubscribe;
+  }, [navigation]);
+
+  async function handleLendBook() {
+    if (
+      !selectedBookId ||
+      !borrowerName.trim() ||
+      !borrowedDate.trim() ||
+      !dueDate.trim()
+    ) {
+      Alert.alert('Missing Information', 'Please complete all required fields.');
+      return;
+    }
+
+    if (
+      !/^\d{4}-\d{2}-\d{2}$/.test(borrowedDate) ||
+      !/^\d{4}-\d{2}-\d{2}$/.test(dueDate)
+    ) {
+      Alert.alert('Invalid Date', 'Enter dates in YYYY-MM-DD format.');
+      return;
+    }
+
+    if (dueDate < borrowedDate) {
+      Alert.alert('Invalid Date', 'Due date cannot be before borrowed date.');
+      return;
+    }
+
+    try {
+      await addBorrowing(
+        selectedBookId,
+        borrowerName.trim(),
+        borrowerContact.trim(),
+        borrowedDate,
+        dueDate
+      );
+
+      Alert.alert('Success', 'Book lent successfully!', [
+        {
+          text: 'OK',
+          onPress: () => navigation.goBack(),
+        },
+      ]);
+    } catch (error) {
+      console.log('Error lending book:', error);
+      Alert.alert('Error', 'Could not lend the book.');
+    }
+  }
+
+  return (
+    <ScrollView style={styles.container}>
+      <Text style={styles.formTitle}>Lend a Book 📖</Text>
+
+      <Text style={styles.label}>Select a Book *</Text>
+
+      {books.length === 0 ? (
+        <Text style={styles.description}>
+          No available books. Add a book first or return a borrowed book.
+        </Text>
+      ) : (
+        books.map((book) => (
+          <TouchableOpacity
+            key={book.id}
+            style={[
+              styles.bookCard,
+              selectedBookId === book.id && styles.selectedBook,
+            ]}
+            onPress={() => setSelectedBookId(book.id)}
+          >
+            <Text style={styles.bookTitle}>{book.title}</Text>
+            <Text style={styles.bookInfo}>Author: {book.author}</Text>
+            <Text style={styles.bookInfo}>Category: {book.category}</Text>
+            {selectedBookId === book.id && (
+              <Text style={styles.available}>Selected ✓</Text>
+            )}
+          </TouchableOpacity>
+        ))
+      )}
+
+      <Text style={styles.label}>Borrower's Name *</Text>
+      <TextInput
+        style={styles.input}
+        value={borrowerName}
+        onChangeText={setBorrowerName}
+        placeholder="Enter borrower's name"
+      />
+
+      <Text style={styles.label}>Contact Number</Text>
+      <TextInput
+        style={styles.input}
+        value={borrowerContact}
+        onChangeText={setBorrowerContact}
+        placeholder="Enter contact number"
+        keyboardType="phone-pad"
+      />
+
+      <Text style={styles.label}>Borrowed Date * (YYYY-MM-DD)</Text>
+      <TextInput
+        style={styles.input}
+        value={borrowedDate}
+        onChangeText={setBorrowedDate}
+        placeholder="2026-11-11"
+      />
+
+      <Text style={styles.label}>Due Date * (YYYY-MM-DD)</Text>
+      <TextInput
+        style={styles.input}
+        value={dueDate}
+        onChangeText={setDueDate}
+        placeholder="2026-11-20"
+      />
+
+      <TouchableOpacity
+        style={styles.saveButton}
+        onPress={handleLendBook}
+      >
+        <Text style={styles.saveButtonText}>Confirm Lending</Text>
+      </TouchableOpacity>
+    </ScrollView>
+  );
+}
+
 function OtherScreen({ route, navigation }) {
   return (
     <View style={styles.otherScreen}>
@@ -377,7 +525,7 @@ export default function App() {
         <Stack.Screen name="Edit Book" component={EditBookScreen} />
         <Stack.Screen name="Add Book" component={AddBookScreen} />
         <Stack.Screen name="Borrowing Records" component={OtherScreen} />
-        <Stack.Screen name="Lend a Book" component={OtherScreen} />
+        <Stack.Screen name="Lend a Book" component={LendBookScreen} />
         <Stack.Screen name="Borrowing Details" component={OtherScreen} />
       </Stack.Navigator>
     </NavigationContainer>
@@ -557,6 +705,21 @@ bookCard: {
   borderRadius: 12,
   elevation: 2,
 },
+bookCard: {
+  backgroundColor: '#FFFFFF',
+  marginHorizontal: 20,
+  marginBottom: 15,
+  padding: 18,
+  borderRadius: 12,
+  elevation: 2,
+},
+
+selectedBook: {
+  borderWidth: 2,
+  borderColor: '#344E8C',
+  backgroundColor: '#EEF2FF',
+},
+
 bookTitle: {
   fontSize: 19,
   fontWeight: 'bold',

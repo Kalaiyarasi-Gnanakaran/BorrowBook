@@ -3,6 +3,7 @@ import * as SQLite from 'expo-sqlite';
 
 const db = SQLite.openDatabaseSync('borrowbook.db');
 
+
 export async function initializeDatabase() {
   await db.execAsync(`
     CREATE TABLE IF NOT EXISTS books (
@@ -12,6 +13,20 @@ export async function initializeDatabase() {
       category TEXT NOT NULL,
       isbn TEXT,
       createdAt TEXT DEFAULT CURRENT_TIMESTAMP
+    );
+  `);
+
+  // Add the borrowings table here
+  await db.execAsync(`
+    CREATE TABLE IF NOT EXISTS borrowings (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      bookId INTEGER NOT NULL,
+      borrowerName TEXT NOT NULL,
+      borrowerContact TEXT,
+      borrowedDate TEXT NOT NULL,
+      dueDate TEXT NOT NULL,
+      returnDate TEXT,
+      status TEXT DEFAULT 'Borrowed'
     );
   `);
 
@@ -47,4 +62,38 @@ export async function deleteBook(id) {
     'DELETE FROM books WHERE id = ?;',
     [id]
   );
+}
+
+
+export async function addBorrowing(
+  bookId,
+  borrowerName,
+  borrowerContact,
+  borrowedDate,
+  dueDate
+) {
+  await db.runAsync(
+    `INSERT INTO borrowings
+     (bookId, borrowerName, borrowerContact, borrowedDate, dueDate)
+     VALUES (?, ?, ?, ?, ?);`,
+    [
+      bookId,
+      borrowerName,
+      borrowerContact || null,
+      borrowedDate,
+      dueDate,
+    ]
+  );
+}
+
+
+export async function getAvailableBooks() {
+  return await db.getAllAsync(`
+    SELECT * FROM books
+    WHERE id NOT IN (
+      SELECT bookId FROM borrowings
+      WHERE status = 'Borrowed'
+    )
+    ORDER BY title ASC;
+  `);
 }
