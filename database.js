@@ -97,3 +97,24 @@ export async function getAvailableBooks() {
     ORDER BY title ASC;
   `);
 }
+
+export async function getBorrowings() {
+  return await db.getAllAsync(`
+    SELECT
+      borrowings.*,
+      books.title,
+      books.author
+    FROM borrowings
+    LEFT JOIN books ON books.id = borrowings.bookId
+    ORDER BY borrowings.id DESC;
+  `);
+}
+
+export async function returnBorrowedBook(id, returnDate) {
+  await db.runAsync(
+    `UPDATE borrowings
+     SET status = 'Returned', returnDate = ?
+     WHERE id = ?;`,
+    [returnDate, id]
+  );
+}

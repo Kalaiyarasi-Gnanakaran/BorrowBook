@@ -18,6 +18,8 @@ import {
   deleteBook,
   addBorrowing,
   getAvailableBooks,
+  getBorrowings,
+  returnBorrowedBook,
 } from './database';
 
 import { NavigationContainer } from '@react-navigation/native';
@@ -483,6 +485,144 @@ function LendBookScreen({ navigation }) {
   );
 }
 
+function BorrowingRecordsScreen({ navigation }) {
+  const [records, setRecords] = useState([]);
+
+  async function loadRecords() {
+    try {
+      const borrowingRecords = await getBorrowings();
+      setRecords(borrowingRecords);
+    } catch (error) {
+      console.log('Error loading borrowing records:', error);
+      Alert.alert('Error', 'Could not load borrowing records.');
+    }
+  }
+
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('focus', loadRecords);
+    return unsubscribe;
+  }, [navigation]);
+
+  return (
+    <ScrollView style={styles.container}>
+      <Text style={styles.formTitle}>Borrowing Records 📋</Text>
+
+      {records.length === 0 ? (
+        <Text style={styles.description}>
+          No borrowing records found yet.
+        </Text>
+      ) : (
+        records.map((record) => (
+          <TouchableOpacity
+            style={styles.bookCard}
+            key={record.id}
+            onPress={() => navigation.navigate('Borrowing Details', { record })}>
+            <Text style={styles.bookTitle}>
+              {record.title || 'Unknown Book'}
+            </Text>
+
+            <Text style={styles.bookInfo}>
+              Author: {record.author || 'Unknown'}
+            </Text>
+
+            <Text style={styles.bookInfo}>
+              Borrower: {record.borrowerName}
+            </Text>
+
+            <Text style={styles.bookInfo}>
+              Contact: {record.borrowerContact || 'Not provided'}
+            </Text>
+
+            <Text style={styles.bookInfo}>
+              Borrowed Date: {record.borrowedDate}
+            </Text>
+
+            <Text style={styles.bookInfo}>
+              Due Date: {record.dueDate}
+            </Text>
+
+            <Text style={styles.bookInfo}>
+              Status: {record.status}
+            </Text>
+          </TouchableOpacity>
+        ))
+      )}
+    </ScrollView>
+  );
+}
+
+function BorrowingDetailsScreen({ route, navigation }) {
+  const { record } = route.params;
+
+  async function handleReturnBook() {
+    const today = new Date().toISOString().split('T')[0];
+
+    Alert.alert(
+      'Confirm Return',
+      'Are you sure this book has been returned?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Yes, Return',
+          onPress: async () => {
+            try {
+              await returnBorrowedBook(record.id, today);
+
+              Alert.alert('Success', 'Book returned successfully!', [
+                {
+                  text: 'OK',
+                  onPress: () => navigation.goBack(),
+                },
+              ]);
+            } catch (error) {
+              console.log('Return error:', error);
+              Alert.alert('Error', 'Could not return the book.');
+            }
+          },
+        },
+      ]
+    );
+  }
+
+  return (
+    <ScrollView style={styles.container}>
+      <Text style={styles.formTitle}>Borrowing Details 📖</Text>
+
+      <View style={styles.bookCard}>
+        <Text style={styles.bookTitle}>
+          {record.title || 'Unknown Book'}
+        </Text>
+
+        <Text style={styles.bookInfo}>Author: {record.author || 'Unknown'}</Text>
+        <Text style={styles.bookInfo}>Borrower: {record.borrowerName}</Text>
+        <Text style={styles.bookInfo}>
+          Contact: {record.borrowerContact || 'Not provided'}
+        </Text>
+        <Text style={styles.bookInfo}>
+          Borrowed Date: {record.borrowedDate}
+        </Text>
+        <Text style={styles.bookInfo}>Due Date: {record.dueDate}</Text>
+        <Text style={styles.bookInfo}>Status: {record.status}</Text>
+
+        {record.returnDate && (
+          <Text style={styles.bookInfo}>
+            Return Date: {record.returnDate}
+          </Text>
+        )}
+      </View>
+
+      {record.status === 'Borrowed' && (
+        <TouchableOpacity
+          style={styles.saveButton}
+          onPress={handleReturnBook}
+        >
+          <Text style={styles.saveButtonText}>Mark as Returned</Text>
+        </TouchableOpacity>
+      )}
+    </ScrollView>
+  );
+}
+
 function OtherScreen({ route, navigation }) {
   return (
     <View style={styles.otherScreen}>
@@ -524,9 +664,9 @@ export default function App() {
         <Stack.Screen name="My Books" component={MyBooksScreen} />
         <Stack.Screen name="Edit Book" component={EditBookScreen} />
         <Stack.Screen name="Add Book" component={AddBookScreen} />
-        <Stack.Screen name="Borrowing Records" component={OtherScreen} />
+        <Stack.Screen name="Borrowing Records" component={BorrowingRecordsScreen} />
         <Stack.Screen name="Lend a Book" component={LendBookScreen} />
-        <Stack.Screen name="Borrowing Details" component={OtherScreen} />
+        <Stack.Screen name="Borrowing Details" component={BorrowingDetailsScreen} />
       </Stack.Navigator>
     </NavigationContainer>
   );
