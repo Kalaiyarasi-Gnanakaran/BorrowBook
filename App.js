@@ -20,6 +20,7 @@ import {
   getAvailableBooks,
   getBorrowings,
   returnBorrowedBook,
+  getDashboardCounts,
 } from './database';
 
 import { NavigationContainer } from '@react-navigation/native';

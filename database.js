@@ -118,3 +118,28 @@ export async function returnBorrowedBook(id, returnDate) {
     [returnDate, id]
   );
 }
+
+export async function getDashboardCounts() {
+  const totalBooks = await db.getFirstAsync(
+    'SELECT COUNT(*) as count FROM books'
+  );
+
+  const availableBooks = await db.getFirstAsync(`
+    SELECT COUNT(*) as count FROM books
+    WHERE id NOT IN (
+      SELECT bookId FROM borrowings
+      WHERE status = 'Borrowed'
+    )
+  `);
+
+  const borrowedBooks = await db.getFirstAsync(`
+    SELECT COUNT(*) as count FROM borrowings
+    WHERE status = 'Borrowed'
+  `);
+
+  return {
+    totalBooks: totalBooks.count,
+    availableBooks: availableBooks.count,
+    borrowedBooks: borrowedBooks.count,
+  };
+}
